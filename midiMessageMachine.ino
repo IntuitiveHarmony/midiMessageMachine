@@ -81,17 +81,19 @@ void loop() {
     midiMessages[messageIndex].data1 = MIDI.getData1();
     midiMessages[messageIndex].data2 = MIDI.getData2();
 
+    // Limit Displayed Messages to 6
+    if (displayedMessages < 7) {
+      displayedMessages++;
+    } else {
+      displayedMessages = 0;
+    }
     // Limit to the max messages and reset if reached
     if (messageIndex < maxMessages) {
       messageIndex++;
     } else {
       messageIndex = 0;
+      handleUpdateDisplay(); // reset display after reseting the message array
       startIndex = 0;
-    }
-    // Limit Displayed Messages to 6
-    if (displayedMessages < 7) {
-      displayedMessages++;
-    } else {
       displayedMessages = 0;
     }
   }
