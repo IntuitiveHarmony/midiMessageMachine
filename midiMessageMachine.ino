@@ -1,51 +1,57 @@
-
 #include <Wire.h>
-// #include <Adafruit_SSD1306.h>
 #include <MIDI.h>
+#include "SSD1306Ascii.h"
+#include "SSD1306AsciiAvrI2c.h"
 
-#include "SSD1306Ascii.h"        // for display
-#include "SSD1306AsciiAvrI2c.h"  // for display
-#define I2C_ADDRESS 0x3C         // display address 0X3C+SA0 - 0x3C or 0x3D
-#define RST_PIN -1               // Define proper display RST_PIN if required.
-
-
-#define encoderPinA 5  // Encoder Pins
+#define I2C_ADDRESS 0x3C
+#define RST_PIN -1
+#define encoderPinA 5
 #define encoderPinB 6
 
-
-SSD1306AsciiAvrI2c oled;  // Instance of the display
+SSD1306AsciiAvrI2c oled;
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
+const int maxMessages = 100;
+struct MidiMessage {
+  byte status;
+  byte data1;
+  byte data2;
+};
 
-uint8_t messageCount = 1;  // Keep track of how many messages are on the screen
-int startRow = 0;          // Variable to control the starting row for displaying messages
+MidiMessage midiMessages[maxMessages];
+int messageIndex = 0;
+
+// For displaying stored messages
+int startRow = 0;
+
+// Encoder Settings
 int aState;
-int aLastState = 0;  // Keep track of any encoder movements
+int aLastState = 0;
 
-
-
+bool headerDisplayed = false;  // Header Flag
 
 void setup() {
   Serial.begin(9600);
-// Initialize display based on reset pin
+
 #if RST_PIN >= 0
   oled.begin(&Adafruit128x64, I2C_ADDRESS, RST_PIN);
-#else   // RST_PIN >= 0
+#else
   oled.begin(&Adafruit128x64, I2C_ADDRESS);
-#endif  // RST_PIN >= 0
-  // Call oled.setI2cClock(frequency) to change from the default frequency.
-
+#endif
 
   MIDI.begin(MIDI_CHANNEL_OMNI);
 
   pinMode(encoderPinA, INPUT_PULLUP);
   pinMode(encoderPinB, INPUT_PULLUP);
 
-  aLastState = digitalRead(encoderPinA); // Initial read of the encoder state
+  aLastState = digitalRead(encoderPinA);
 
-  oled.setFont(Adafruit5x7);  // Set font for display
+  oled.setFont(Adafruit5x7);
 
+  oled.setRow(1);
+  oled.println(F("INTUITIVE HARMONY"));
+  oled.println(F(""));
   oled.set2X();
   oled.println(F("MIDI"));
   oled.set1X();
@@ -56,46 +62,81 @@ void setup() {
 }
 
 void loop() {
-
   Serial.print("startRow: ");
   Serial.println(startRow);
 
-  aState = digitalRead(encoderPinA);
-  if(aState != aLastState) {
-    if (digitalRead(encoderPinB) != aState) {
-      startRow++;
+
+
+  // Display MIDI messages below the header
+  if (MIDI.read()) {
+    // Store the received MIDI message in the array
+    midiMessages[messageIndex].status = MIDI.getType() | MIDI.getChannel();
+    midiMessages[messageIndex].data1 = MIDI.getData1();
+    midiMessages[messageIndex].data2 = MIDI.getData2();
+
+    if (messageIndex < maxMessages) {
+      messageIndex++;
     } else {
-      startRow--;
+      messageIndex = 0;
+    }
+  }
+
+  // Scroll up when the screen is filled
+  if (messageIndex > 6) {
+    // oled.setScroll(1);
+    // Reset message count after scrolling
+    // messageIndex = 1;
+  }
+
+  // Handle encoder input
+  handleEncoder();
+  if (!headerDisplayed) {
+    printHeader();
+  }
+  // Print stored messages
+  oled.setRow(2);
+  printStoredMessages();
+}
+
+void handleEncoder() {
+  aState = digitalRead(encoderPinA);
+  if (aState != aLastState) {
+    if (startRow >= 0) {
+      if (digitalRead(encoderPinB) != aState) {
+        startRow++;
+      } else {
+        if (startRow > 0) {
+          startRow--;
+        }
+      }
     }
     aLastState = aState;
   }
+}
 
-  // Check if there is any MIDI input
-  if (MIDI.read()) {
-    // Print the received MIDI message to the OLED display
-    oled.print(messageCount);
+// Will adjust the placement of the headers based on the number printed for the index (eventually)
+void printHeader() {
+  // Print the header
+  oled.println("   St D1 D2");
+  oled.println("  ~~~~~~~~~~");
+  headerDisplayed = true;
+}
+
+void printStoredMessages() {
+  // Print the stored MIDI messages
+  for (int i = startRow; i < messageIndex; i++) {
+    oled.print(i + 1);
     oled.print(": ");
-    // Use bitwise OR to get the full status byte
-    byte fullStatusByte = MIDI.getType() | MIDI.getChannel();
-    oled.print(fullStatusByte, HEX);
+    oled.print(midiMessages[i].status, HEX);
     oled.print(" ");
-    oled.print(MIDI.getData1(), HEX);
+    oled.print(midiMessages[i].data1, HEX);
     oled.print(" ");
-    oled.println(MIDI.getData2(), HEX);
-
-    Serial.print("Status: 0x");
-    Serial.print(MIDI.getType(), HEX);
-    Serial.print(" Channel: ");
-    Serial.print(MIDI.getChannel());
-    Serial.print(" Data1: ");
-    Serial.print(MIDI.getData1());
-    Serial.print(" Data2: ");
-    Serial.println(MIDI.getData2());
-
-    messageCount++;
+    oled.println(midiMessages[i].data2, HEX);
   }
-  // Scroll up when the screen is filled
-  if (messageCount >= 9) {
-    oled.setScroll(1);
+  // Clear display after 6 messages and print the next 6 messages
+  if(messageIndex % 6 == 0 && messageIndex != 0) {
+    oled.clear();
+    startRow = startRow + 7;
+    headerDisplayed = false; // reset header flag
   }
 }
