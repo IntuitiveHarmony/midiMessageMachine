@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <MIDI.h>
-#include "SSD1306Ascii.h" // https://github.com/greiman/SSD1306Ascii
+#include "SSD1306Ascii.h"  // https://github.com/greiman/SSD1306Ascii
 #include "SSD1306AsciiAvrI2c.h"
 
 #define I2C_ADDRESS 0x3C
@@ -92,7 +92,7 @@ void loop() {
       messageIndex++;
     } else {
       messageIndex = 0;
-      handleUpdateDisplay(); // reset display after reseting the message array
+      handleUpdateDisplay();  // reset display after reseting the message array
       startIndex = 0;
       displayedMessages = 0;
     }
@@ -101,15 +101,16 @@ void loop() {
   if (displayedMessages >= 7 && messageIndex > 0 && displayUpdated == false) {
     handleUpdateDisplay();
   }
-  // hacky way to keep the display from flickering
+  // hacky way to reset the display after the first 6 notes
   if (displayedMessages != 7 && messageIndex > 0) {
     displayUpdated = false;
   }
 
-
+  // print the header
   if (!headerDisplayed) {
     printHeader(messageIndex);
   }
+
   // Print stored messages
   oled.setRow(2);
   printStoredMessages();
@@ -131,17 +132,17 @@ void handleEncoder() {
   }
 }
 
-// Will adjust the placement of the headers based on the number printed for the index (eventually)
+// Will adjust the placement of the headers based on the number printed for the message index
 void printHeader(int messageIndex) {
   // Print the header
   if (messageIndex < 10) {
-    oled.println("   St D1 D2");
+    oled.println("   ST D1 D2");
     oled.println("  ~~~~~~~~~~");
   } else if (messageIndex > 100) {
-    oled.println("     St D1 D2");
+    oled.println("     ST D1 D2");
     oled.println("    ~~~~~~~~~~");
   } else if (messageIndex > 10) {
-    oled.println("    St D1 D2");
+    oled.println("    ST D1 D2");
     oled.println("   ~~~~~~~~~~");
   }
   headerDisplayed = true;
