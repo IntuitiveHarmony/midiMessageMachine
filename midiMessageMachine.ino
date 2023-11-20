@@ -19,11 +19,13 @@ struct MidiMessage {
   byte data2;
 };
 
-MidiMessage midiMessages[maxMessages];
+MidiMessage midiMessages[maxMessages];  // Store MIDI messages so they can be recalled
 int messageIndex = 0;
 
 // For displaying stored messages
-int startRow = 0;
+int displayedMessages = 0;
+bool displayUpdated = false;
+int startIndex = 0;
 
 // Encoder Settings
 int aState;
@@ -62,10 +64,15 @@ void setup() {
 }
 
 void loop() {
-  Serial.print("startRow: ");
-  Serial.println(startRow);
+  Serial.print("startIndex: ");
+  Serial.println(startIndex);
+  Serial.print("messageIndex: ");
+  Serial.println(messageIndex);
+  Serial.print("displayedMessages: ");
+  Serial.println(displayedMessages);
 
-
+  // Handle encoder input
+  handleEncoder();
 
   // Display MIDI messages below the header
   if (MIDI.read()) {
@@ -74,24 +81,32 @@ void loop() {
     midiMessages[messageIndex].data1 = MIDI.getData1();
     midiMessages[messageIndex].data2 = MIDI.getData2();
 
+    // Limit to the max messages and reset if reached
     if (messageIndex < maxMessages) {
       messageIndex++;
     } else {
       messageIndex = 0;
+      startIndex = 0;
+    }
+    // Limit Displayed Messages to 6
+    if (displayedMessages < 7) {
+      displayedMessages++;
+    } else {
+      displayedMessages = 0;
     }
   }
-
-  // Scroll up when the screen is filled
-  if (messageIndex > 6) {
-    // oled.setScroll(1);
-    // Reset message count after scrolling
-    // messageIndex = 1;
+  // Check to see if the screen should be reset
+  if (displayedMessages >= 7 && messageIndex > 0 && displayUpdated == false) {
+    handleUpdateDisplay();
+  }
+  // hacky way to keep the display from flickering
+  if (displayedMessages != 7 && messageIndex > 0) {
+    displayUpdated = false;
   }
 
-  // Handle encoder input
-  handleEncoder();
+
   if (!headerDisplayed) {
-    printHeader();
+    printHeader(messageIndex);
   }
   // Print stored messages
   oled.setRow(2);
@@ -101,12 +116,12 @@ void loop() {
 void handleEncoder() {
   aState = digitalRead(encoderPinA);
   if (aState != aLastState) {
-    if (startRow >= 0) {
+    if (startIndex >= 0) {
       if (digitalRead(encoderPinB) != aState) {
-        startRow++;
+        startIndex++;
       } else {
-        if (startRow > 0) {
-          startRow--;
+        if (startIndex > 0) {
+          startIndex--;
         }
       }
     }
@@ -115,16 +130,21 @@ void handleEncoder() {
 }
 
 // Will adjust the placement of the headers based on the number printed for the index (eventually)
-void printHeader() {
+void printHeader(int messageIndex) {
   // Print the header
-  oled.println("   St D1 D2");
-  oled.println("  ~~~~~~~~~~");
+  if (messageIndex < 10) {
+    oled.println("   St D1 D2");
+    oled.println("  ~~~~~~~~~~");
+  } else if (messageIndex > 10) {
+    oled.println("    St D1 D2");
+    oled.println("   ~~~~~~~~~~");
+  }
   headerDisplayed = true;
 }
 
 void printStoredMessages() {
   // Print the stored MIDI messages
-  for (int i = startRow; i < messageIndex; i++) {
+  for (int i = startIndex; i < messageIndex; i++) {
     oled.print(i + 1);
     oled.print(": ");
     oled.print(midiMessages[i].status, HEX);
@@ -133,10 +153,13 @@ void printStoredMessages() {
     oled.print(" ");
     oled.println(midiMessages[i].data2, HEX);
   }
-  // Clear display after 6 messages and print the next 6 messages
-  if(messageIndex % 6 == 0 && messageIndex != 0) {
-    oled.clear();
-    startRow = startRow + 7;
-    headerDisplayed = false; // reset header flag
-  }
+}
+
+// Clear display after 6 messages and print the next 6 messages
+void handleUpdateDisplay() {
+  oled.clear();
+  startIndex = startIndex + 6;
+  displayUpdated = true;
+  headerDisplayed = false;  // reset header flag
+  displayedMessages = 1;
 }
