@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <MIDI.h>
-#include "SSD1306Ascii.h"
+#include "SSD1306Ascii.h" // https://github.com/greiman/SSD1306Ascii
 #include "SSD1306AsciiAvrI2c.h"
 
 #define I2C_ADDRESS 0x3C
@@ -12,7 +12,7 @@ SSD1306AsciiAvrI2c oled;
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
-const int maxMessages = 100;
+const int maxMessages = 300;
 struct MidiMessage {
   byte status;
   byte data1;
@@ -135,6 +135,9 @@ void printHeader(int messageIndex) {
   if (messageIndex < 10) {
     oled.println("   St D1 D2");
     oled.println("  ~~~~~~~~~~");
+  } else if (messageIndex > 100) {
+    oled.println("     St D1 D2");
+    oled.println("    ~~~~~~~~~~");
   } else if (messageIndex > 10) {
     oled.println("    St D1 D2");
     oled.println("   ~~~~~~~~~~");
@@ -145,6 +148,10 @@ void printHeader(int messageIndex) {
 void printStoredMessages() {
   // Print the stored MIDI messages
   for (int i = startIndex; i < messageIndex; i++) {
+    // highlight most current message
+    if (i + 1 == messageIndex) {
+      oled.setInvertMode(1);
+    }
     oled.print(i + 1);
     oled.print(": ");
     oled.print(midiMessages[i].status, HEX);
@@ -153,6 +160,8 @@ void printStoredMessages() {
     oled.print(" ");
     oled.println(midiMessages[i].data2, HEX);
   }
+  // reset highlight
+  oled.setInvertMode(0);
 }
 
 // Clear display after 6 messages and print the next 6 messages
