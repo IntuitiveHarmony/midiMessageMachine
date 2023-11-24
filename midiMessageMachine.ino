@@ -95,6 +95,8 @@ void loop() {
 
   // Display MIDI messages below the header
   if (MIDI.read() && !freezeInput) {
+    digitalWrite(freezeLED, HIGH);
+
     // Store the received MIDI message in the array
     midiMessages[messageIndex].status = MIDI.getType() | MIDI.getChannel();
     midiMessages[messageIndex].data1 = MIDI.getData1();
@@ -131,9 +133,15 @@ void loop() {
   // Print stored messages
   oled.setRow(2);
   printStoredMessages();
+  digitalWrite(freezeLED, LOW);
 }
 
 void handleFreeze() {
+  if (freezeInput == true) {
+    digitalWrite(freezeLED, HIGH);
+  } else {
+    digitalWrite(freezeLED, LOW);
+  }
   static bool buttonState = HIGH;  // HIGH means not pressed
 
   if (digitalRead(freezePin) == LOW && buttonState == HIGH) {
